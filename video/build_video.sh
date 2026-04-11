@@ -33,8 +33,12 @@
 set -euo pipefail
 
 # ==== 出力設定 ====
-WIDTH=1920
-HEIGHT=1080
+# 素材写真が縦位置中心 (3840x5760) なので、
+# Reels / TikTok / Shorts / Stories 向けの 1080x1920 を既定とする。
+# 横長で書き出したい場合は WIDTH/HEIGHT を 1920/1080 に変更すれば
+# 同じスクリプトで再生成できます。
+WIDTH=1080
+HEIGHT=1920
 FPS=30
 
 # ==== カラー (料亭・高級和食を想起させる配色) ====
@@ -44,6 +48,7 @@ ACCENT_COLOR="c9a871"      # 金茶（サブコピー・強調）
 
 # ==== パス ====
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 IMAGES_DIR="${SCRIPT_DIR}/assets/images"
 OUT_DIR="${SCRIPT_DIR}/output"
 TMP_DIR="${OUT_DIR}/.scenes"
@@ -81,14 +86,29 @@ FONT_GOTHIC=$(find_font "ゴシック" \
   "C:/Windows/Fonts/YuGothR.ttc")
 
 # ==== シーン台本 ====
-# フォーマット: duration(秒)|メインコピー|サブコピー|画像ベース名
-# 合計 15 秒 (SNS フィード/リール/TrueViewバンパー前半に最適化)
+# フォーマット: duration(秒)|メインコピー|サブコピー|画像ファイル|main_fontsize
+#
+# main_fontsize は省略可 (省略時 76)。短いブランドコピー等で大きくしたい時に使用。
+#
+# 画像ファイルは下記の順で検索されます:
+#   1) 絶対パスで指定されていればそのまま
+#   2) ${IMAGES_DIR}/<指定> (video/assets/images 配下)
+#   3) ${REPO_ROOT}/<指定> (リポジトリ直下)
+#   4) 見つからなければ黒背景でテキストのみ
+#
+# 合計 15 秒 (Reels / Shorts / Stories 1本分)
+#
+# 企画メモ:
+#   目的       : 実際の利用シーンを想起させる
+#   訴求軸     : 接待・会食・顔合わせ／個室 (寂・清)／席間・導線／静かな会話
+#   ターゲット : 30〜50代経営者の接待、40代以上の会食
+#   最重要価値 : 失敗しない安心感
 SCENES=(
-  "3.0|その一席が、関係を決める。|—— 接待・会食・顔合わせ|01_hero"
-  "3.0|静けさは、もてなしになる。|—— 完全個室、声の通りまで設えの内に|02_koshitsu"
-  "3.0|語らう人の、呼吸を遮らない。|—— ゆとりの席間、配慮の行き届いた導線|03_seat"
-  "3.0|選ばれ続けた、大人の会食。|—— 30〜50代の経営者、40代からの顔合わせに|04_meal"
-  "3.0|大嵓埜|—— 失敗しない、会食の一軒。|05_logo"
+  "3.0|その一席が、関係を決める。|—— 接待・会食・顔合わせ|イメージ_お食事シーン0097.JPG|"
+  "3.0|粛然たる、二〜四名の間。|—— 寂 jaku ／ 煉瓦色の壁に、ゆるやかな時|寂-jaku-7C1A1614.JPG|"
+  "3.0|美意識で、賓客をもてなす。|—— 清 sei ／ 金泥のやまと絵と雪結晶の床|清-sei-7C1A1622.JPG|"
+  "3.0|語らう人の、呼吸を遮らない。|—— ゆとりの席間、静かな導線|イメージ_お食事シーン0052.JPG|"
+  "3.2|大嵓埜|—— 失敗しない、会食の一軒。|イメージ_お食事シーン0046.JPG|160"
 )
 
 # ==== drawtext 用エスケープ ====
@@ -104,10 +124,27 @@ escape_drawtext() {
 
 # ==== 画像検出 ====
 find_image() {
-  local base="$1" ext
+  local spec="$1"
+  # 1) 絶対パス
+  if [[ "$spec" == /* && -f "$spec" ]]; then
+    printf '%s' "$spec"
+    return 0
+  fi
+  # 2) IMAGES_DIR 配下
+  if [[ -f "${IMAGES_DIR}/${spec}" ]]; then
+    printf '%s' "${IMAGES_DIR}/${spec}"
+    return 0
+  fi
+  # 3) リポジトリ直下
+  if [[ -f "${REPO_ROOT}/${spec}" ]]; then
+    printf '%s' "${REPO_ROOT}/${spec}"
+    return 0
+  fi
+  # 4) IMAGES_DIR 配下でベース名一致 (拡張子自動補完)
+  local ext
   for ext in jpg jpeg png webp JPG JPEG PNG WEBP; do
-    if [[ -f "${IMAGES_DIR}/${base}.${ext}" ]]; then
-      printf '%s' "${IMAGES_DIR}/${base}.${ext}"
+    if [[ -f "${IMAGES_DIR}/${spec}.${ext}" ]]; then
+      printf '%s' "${IMAGES_DIR}/${spec}.${ext}"
       return 0
     fi
   done
@@ -116,8 +153,10 @@ find_image() {
 
 # ==== シーン単体ビルド ====
 build_scene() {
-  local idx="$1" duration="$2" main="$3" sub="$4" img_base="$5"
+  local idx="$1" duration="$2" main="$3" sub="$4" img_spec="$5" main_fs="${6:-}"
   local out="${TMP_DIR}/scene_${idx}.mp4"
+
+  local main_fontsize="${main_fs:-76}"
 
   local main_esc sub_esc
   main_esc=$(escape_drawtext "$main")
@@ -128,12 +167,13 @@ build_scene() {
 
   local input_args=()
   local base_filter
-  if img_path=$(find_image "$img_base"); then
+  local img_path
+  if img_path=$(find_image "$img_spec"); then
     input_args=(-loop 1 -t "$duration" -i "$img_path")
-    # カバーにクロップし、シネマ調の軽いグレーディングと緩慢なズーム
-    base_filter="scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT}"
-    base_filter+=",eq=brightness=-0.08:saturation=0.88:contrast=1.05"
-    base_filter+=",zoompan=z='min(pzoom+0.0008,1.08)':d=1:s=${WIDTH}x${HEIGHT}:fps=${FPS}"
+    # カバーにクロップしシネマ調のグレーディング
+    base_filter="scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1"
+    base_filter+=",eq=brightness=-0.08:saturation=0.90:contrast=1.06"
+    base_filter+=",format=yuv420p"
   else
     # 画像が無ければ黒背景
     input_args=(-f lavfi -t "$duration" -i "color=c=#${BG_COLOR}:s=${WIDTH}x${HEIGHT}:r=${FPS}")
@@ -142,20 +182,20 @@ build_scene() {
 
   local vf="$base_filter"
 
-  # 下半分に暗いグラデーションボックス（可読性担保）
-  vf+=",drawbox=x=0:y=ih*0.52:w=iw:h=ih*0.48:color=black@0.45:t=fill"
+  # 下段に暗いグラデーションボックス (可読性担保)
+  vf+=",drawbox=x=0:y=ih*0.55:w=iw:h=ih*0.45:color=black@0.65:t=fill"
 
   # メインコピー (明朝)
   vf+=",drawtext=fontfile='${FONT_MINCHO}':text='${main_esc}'"
-  vf+=":fontsize=92:fontcolor=#${MAIN_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.62"
-  vf+=":shadowcolor=black@0.85:shadowx=3:shadowy=3"
+  vf+=":fontsize=${main_fontsize}:fontcolor=#${MAIN_COLOR}"
+  vf+=":x=(w-text_w)/2:y=h*0.66-(text_h/2)+40"
+  vf+=":shadowcolor=black@0.9:shadowx=3:shadowy=3"
 
   # サブコピー (ゴシック)
   vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='${sub_esc}'"
-  vf+=":fontsize=40:fontcolor=#${ACCENT_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.62+130"
-  vf+=":shadowcolor=black@0.85:shadowx=2:shadowy=2"
+  vf+=":fontsize=34:fontcolor=#${ACCENT_COLOR}"
+  vf+=":x=(w-text_w)/2:y=h*0.78"
+  vf+=":shadowcolor=black@0.9:shadowx=2:shadowy=2"
 
   # フェードイン・フェードアウト
   vf+=",fade=t=in:st=0:d=0.6,fade=t=out:st=${fade_out_start}:d=0.6"
@@ -175,9 +215,9 @@ total=${#SCENES[@]}
 idx=0
 for scene in "${SCENES[@]}"; do
   idx=$((idx + 1))
-  IFS='|' read -r dur main sub img <<< "$scene"
+  IFS='|' read -r dur main sub img main_fs <<< "$scene"
   printf '[%d/%d] scene_%02d  %s\n' "$idx" "$total" "$idx" "$main"
-  build_scene "$(printf '%02d' "$idx")" "$dur" "$main" "$sub" "$img"
+  build_scene "$(printf '%02d' "$idx")" "$dur" "$main" "$sub" "$img" "$main_fs"
   printf "file 'scene_%02d.mp4'\n" "$idx" >> "${TMP_DIR}/concat.txt"
 done
 
