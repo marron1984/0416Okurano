@@ -71,6 +71,11 @@ find_font() {
   return 1
 }
 
+FONT_MINCHO_LIGHT=$(find_font "明朝細" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSerifJP-Light.otf" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSerifJP-Regular.otf" \
+  "/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf")
+
 FONT_MINCHO=$(find_font "明朝" \
   "${SCRIPT_DIR}/assets/fonts/NotoSerifJP-Regular.otf" \
   "/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf" \
@@ -83,6 +88,11 @@ FONT_MINCHO_BOLD=$(find_font "明朝太字" \
   "${SCRIPT_DIR}/assets/fonts/NotoSerifJP-SemiBold.otf" \
   "${SCRIPT_DIR}/assets/fonts/NotoSerifJP-Regular.otf" \
   "/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf")
+
+FONT_GOTHIC_LIGHT=$(find_font "ゴシック細" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSansJP-Light.otf" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSansJP-Regular.otf" \
+  "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf")
 
 FONT_GOTHIC=$(find_font "ゴシック" \
   "${SCRIPT_DIR}/assets/fonts/NotoSansJP-Regular.otf" \
@@ -200,19 +210,19 @@ build_scene() {
 
   local vf="$base_filter"
 
-  # メインコピー (明朝) ― 外枠+ドロップシャドウで可読性を確保 (drawboxは使わない)
-  vf+=",drawtext=fontfile='${FONT_MINCHO}':text='${main_esc}'"
+  # メインコピー (明朝 Light) ― 縁取りは最小限、影で立体感を出す
+  vf+=",drawtext=fontfile='${FONT_MINCHO_LIGHT}':text='${main_esc}'"
   vf+=":fontsize=${main_fontsize}:fontcolor=#${MAIN_COLOR}"
   vf+=":x=(w-text_w)/2:y=h*0.76-(text_h/2)"
-  vf+=":borderw=3:bordercolor=black@0.9"
-  vf+=":shadowcolor=black@0.95:shadowx=4:shadowy=4"
+  vf+=":borderw=1:bordercolor=black@0.7"
+  vf+=":shadowcolor=black@0.85:shadowx=3:shadowy=5"
 
-  # サブコピー (ゴシック)
-  vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='${sub_esc}'"
+  # サブコピー (ゴシック Light)
+  vf+=",drawtext=fontfile='${FONT_GOTHIC_LIGHT}':text='${sub_esc}'"
   vf+=":fontsize=34:fontcolor=#${ACCENT_COLOR}"
   vf+=":x=(w-text_w)/2:y=h*0.86"
-  vf+=":borderw=2:bordercolor=black@0.9"
-  vf+=":shadowcolor=black@0.95:shadowx=3:shadowy=3"
+  vf+=":borderw=1:bordercolor=black@0.7"
+  vf+=":shadowcolor=black@0.85:shadowx=2:shadowy=4"
 
   # フェードイン・フェードアウト
   vf+=",fade=t=in:st=0:d=0.6,fade=t=out:st=${fade_out_start}:d=0.6"
@@ -269,8 +279,9 @@ build_info_scene() {
 
   local vf="$base_filter"
 
-  # 共通 drawtext 装飾 (縁取り+シャドウ)
-  local shadow=":borderw=2:bordercolor=black@0.92:shadowcolor=black@0.95:shadowx=2:shadowy=2"
+  # 共通 drawtext 装飾 ―― 情報カードは背景を大きくぼかしているので
+  # 縁取りはごく薄く、シャドウだけで空気感を残す。
+  local shadow=":borderw=1:bordercolor=black@0.55:shadowcolor=black@0.85:shadowx=2:shadowy=3"
 
   # 行を 1 本追加するヘルパ ――  drawtext を vf に連結する
   # $1 = font $2 = text $3 = fontsize $4 = color $5 = y 比率
@@ -300,53 +311,53 @@ build_info_scene() {
   # ラベルと値の相対オフセット
   local DL=0.035  # ラベル→値 の縦オフセット
 
-  # ① 店名
-  add_line "$FONT_GOTHIC" "$STORE_NAME_LABEL" 28 "$ACCENT_COLOR" "$L1"
+  # ① 店名 (明朝 Regular / 重くなりすぎないように SemiBold は使わない)
+  add_line "$FONT_GOTHIC_LIGHT" "$STORE_NAME_LABEL" 28 "$ACCENT_COLOR" "$L1"
   local l1_value
   l1_value=$(awk -v l="$L1" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
-  add_line "$FONT_MINCHO_BOLD" "$STORE_NAME" 58 "$MAIN_COLOR" "$l1_value"
+  add_line "$FONT_MINCHO" "$STORE_NAME" 56 "$MAIN_COLOR" "$l1_value"
 
   # ② 住所 (2行)
-  add_line "$FONT_GOTHIC" "$STORE_ADDR_LABEL" 28 "$ACCENT_COLOR" "$L2"
+  add_line "$FONT_GOTHIC_LIGHT" "$STORE_ADDR_LABEL" 28 "$ACCENT_COLOR" "$L2"
   local l2_v1 l2_v2 l2_v3
   l2_v1=$(awk -v l="$L2" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
   l2_v2=$(awk -v l="$L2" -v d="$DL" 'BEGIN{printf "%.4f", l+d+0.035}')
   l2_v3=$(awk -v l="$L2" -v d="$DL" 'BEGIN{printf "%.4f", l+d+0.070}')
-  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_ADDR_ZIP" 34 "$MAIN_COLOR" "$l2_v1"
-  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_ADDR_LINE1" 34 "$MAIN_COLOR" "$l2_v2"
-  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_ADDR_LINE2" 34 "$MAIN_COLOR" "$l2_v3"
+  add_line "$FONT_GOTHIC" "$STORE_ADDR_ZIP" 32 "$MAIN_COLOR" "$l2_v1"
+  add_line "$FONT_GOTHIC" "$STORE_ADDR_LINE1" 32 "$MAIN_COLOR" "$l2_v2"
+  add_line "$FONT_GOTHIC" "$STORE_ADDR_LINE2" 32 "$MAIN_COLOR" "$l2_v3"
 
   # ③ 電話番号
-  add_line "$FONT_GOTHIC" "$STORE_TEL_LABEL" 28 "$ACCENT_COLOR" "$L3"
+  add_line "$FONT_GOTHIC_LIGHT" "$STORE_TEL_LABEL" 28 "$ACCENT_COLOR" "$L3"
   local l3_v
   l3_v=$(awk -v l="$L3" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
-  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_TEL" 42 "$MAIN_COLOR" "$l3_v"
+  add_line "$FONT_GOTHIC" "$STORE_TEL" 42 "$MAIN_COLOR" "$l3_v"
 
   # ④ 営業時間 (2行)
-  add_line "$FONT_GOTHIC" "$STORE_HOURS_LABEL" 28 "$ACCENT_COLOR" "$L4"
+  add_line "$FONT_GOTHIC_LIGHT" "$STORE_HOURS_LABEL" 28 "$ACCENT_COLOR" "$L4"
   local l4_v1 l4_v2
   l4_v1=$(awk -v l="$L4" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
   l4_v2=$(awk -v l="$L4" -v d="$DL" 'BEGIN{printf "%.4f", l+d+0.035}')
-  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_HOURS_DAY" 32 "$MAIN_COLOR" "$l4_v1"
-  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_HOURS_NIGHT" 32 "$MAIN_COLOR" "$l4_v2"
+  add_line "$FONT_GOTHIC" "$STORE_HOURS_DAY" 30 "$MAIN_COLOR" "$l4_v1"
+  add_line "$FONT_GOTHIC" "$STORE_HOURS_NIGHT" 30 "$MAIN_COLOR" "$l4_v2"
 
   # ⑤ 定休日 (2行)
-  add_line "$FONT_GOTHIC" "$STORE_CLOSED_LABEL" 28 "$ACCENT_COLOR" "$L5"
+  add_line "$FONT_GOTHIC_LIGHT" "$STORE_CLOSED_LABEL" 28 "$ACCENT_COLOR" "$L5"
   local l5_v1 l5_v2
   l5_v1=$(awk -v l="$L5" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
   l5_v2=$(awk -v l="$L5" -v d="$DL" 'BEGIN{printf "%.4f", l+d+0.030}')
-  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_CLOSED_LINE1" 34 "$MAIN_COLOR" "$l5_v1"
-  add_line "$FONT_GOTHIC" "$STORE_CLOSED_LINE2" 26 "$ACCENT_COLOR" "$l5_v2"
+  add_line "$FONT_GOTHIC" "$STORE_CLOSED_LINE1" 32 "$MAIN_COLOR" "$l5_v1"
+  add_line "$FONT_GOTHIC_LIGHT" "$STORE_CLOSED_LINE2" 24 "$ACCENT_COLOR" "$l5_v2"
 
   # ⑥ サービス料
-  add_line "$FONT_GOTHIC" "$STORE_SERVICE_LABEL" 28 "$ACCENT_COLOR" "$L6"
+  add_line "$FONT_GOTHIC_LIGHT" "$STORE_SERVICE_LABEL" 28 "$ACCENT_COLOR" "$L6"
   local l6_v
   l6_v=$(awk -v l="$L6" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
-  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_SERVICE" 34 "$MAIN_COLOR" "$l6_v"
+  add_line "$FONT_GOTHIC" "$STORE_SERVICE" 32 "$MAIN_COLOR" "$l6_v"
 
-  # 下部にブランドフット (区切り + 大嵓埜 ロゴ的な扱い)
-  add_line "$FONT_GOTHIC" "— — — — — — — — —" 22 "$ACCENT_COLOR" "0.84"
-  add_line "$FONT_MINCHO_BOLD" "大嵓埜" 68 "$MAIN_COLOR" "0.87"
+  # 下部にブランドフット (区切り + 大嵓埜)
+  add_line "$FONT_GOTHIC_LIGHT" "— — — — — — — — —" 22 "$ACCENT_COLOR" "0.84"
+  add_line "$FONT_MINCHO" "大嵓埜" 66 "$MAIN_COLOR" "0.87"
 
   # フェードイン・アウト
   vf+=",fade=t=in:st=0:d=0.8,fade=t=out:st=${fade_out_start}:d=0.8"
