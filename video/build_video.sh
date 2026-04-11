@@ -107,9 +107,11 @@ SCENES=(
   "3.0|その一席が、関係を決める。|—— 接待・会食・顔合わせ|イメージ_お食事シーン0097.JPG|"
   "3.0|粛然たる、二〜四名の間。|—— 寂 jaku ／ 煉瓦色の壁に、ゆるやかな時|寂-jaku-7C1A1614.JPG|"
   "3.0|美意識で、賓客をもてなす。|—— 清 sei ／ 金泥のやまと絵と雪結晶の床|清-sei-7C1A1622.JPG|"
-  "3.0|細部に、品格を宿す。|—— 器のひとつまで、気を配って|切子グラス0006.JPG|"
+  "3.0|一献の支度にも、品格を。|—— 選び抜いた、酒と器と|切子グラス0006.JPG|"
+  "3.0|献立は、静かに運ばれる。|—— 会話を遮らない、間合い|イメージ_お食事シーン0099.JPG|"
   "3.0|語らう人の、呼吸を遮らない。|—— ゆとりの席間、静かな導線|イメージ_お食事シーン0052.JPG|"
-  "3.2|大嵓埜|—— 失敗しない、会食の一軒。|イメージ_お食事シーン0046.JPG|160"
+  "3.2|大切な夜に、ふさわしい一軒。|—— 失敗しない、接待・会食の支度|イメージ_お食事シーン0046.JPG|"
+  "INFO|5.0||寂-jaku-7C1A1614.JPG"
 )
 
 # ==== drawtext 用エスケープ ====
@@ -183,23 +185,122 @@ build_scene() {
 
   local vf="$base_filter"
 
-  # 下段に暗いグラデーションボックス (可読性担保)
-  vf+=",drawbox=x=0:y=ih*0.55:w=iw:h=ih*0.45:color=black@0.65:t=fill"
-
-  # メインコピー (明朝)
+  # メインコピー (明朝) ― 外枠+ドロップシャドウで可読性を確保 (drawboxは使わない)
   vf+=",drawtext=fontfile='${FONT_MINCHO}':text='${main_esc}'"
   vf+=":fontsize=${main_fontsize}:fontcolor=#${MAIN_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.66-(text_h/2)+40"
-  vf+=":shadowcolor=black@0.9:shadowx=3:shadowy=3"
+  vf+=":x=(w-text_w)/2:y=h*0.76-(text_h/2)"
+  vf+=":borderw=3:bordercolor=black@0.9"
+  vf+=":shadowcolor=black@0.95:shadowx=4:shadowy=4"
 
   # サブコピー (ゴシック)
   vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='${sub_esc}'"
   vf+=":fontsize=34:fontcolor=#${ACCENT_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.78"
-  vf+=":shadowcolor=black@0.9:shadowx=2:shadowy=2"
+  vf+=":x=(w-text_w)/2:y=h*0.86"
+  vf+=":borderw=2:bordercolor=black@0.9"
+  vf+=":shadowcolor=black@0.95:shadowx=3:shadowy=3"
 
   # フェードイン・フェードアウト
   vf+=",fade=t=in:st=0:d=0.6,fade=t=out:st=${fade_out_start}:d=0.6"
+
+  ffmpeg -y -hide_banner -loglevel error \
+    "${input_args[@]}" \
+    -vf "$vf" \
+    -c:v libx264 -preset medium -crf 20 \
+    -pix_fmt yuv420p -r "$FPS" \
+    -an \
+    "$out"
+}
+
+# ==== 店舗情報シーン (最終ページ) ====
+# 大倉山の店舗情報を載せる専用レイアウト。
+# 住所・電話・営業時間等は「要入稿」として ○ 表記のプレースホルダ。
+# 実情報が確定したら下記の STORE_* を書き換えてください。
+STORE_NAME="大嵓埜"
+STORE_AREA="横浜・大倉山"
+STORE_ADDRESS="神奈川県横浜市港北区大倉山 ○-○-○"
+STORE_TEL="045-○○○-○○○○"
+STORE_ACCESS="東急東横線 大倉山駅 徒歩○分"
+STORE_HOURS="○○:○○ – ○○:○○ (L.O. ○○:○○)"
+STORE_CLOSED="○曜日"
+STORE_CTA="ご予約はお電話または公式サイトより"
+
+build_info_scene() {
+  local idx="$1" duration="$2" img_spec="$3"
+  local out="${TMP_DIR}/scene_${idx}.mp4"
+
+  local fade_out_start
+  fade_out_start=$(awk -v d="$duration" 'BEGIN{printf "%.3f", d-0.8}')
+
+  local input_args=()
+  local base_filter
+  local img_path
+  if img_path=$(find_image "$img_spec"); then
+    input_args=(-loop 1 -t "$duration" -i "$img_path")
+    # 画像を背景として残しつつ、強めのぼかし+減光で文字が主役になるよう調整
+    base_filter="scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1"
+    base_filter+=",boxblur=22:1"
+    base_filter+=",eq=brightness=-0.28:saturation=0.55:contrast=1.02"
+    base_filter+=",format=yuv420p"
+  else
+    input_args=(-f lavfi -t "$duration" -i "color=c=#${BG_COLOR}:s=${WIDTH}x${HEIGHT}:r=${FPS}")
+    base_filter="format=yuv420p"
+  fi
+
+  local vf="$base_filter"
+
+  # 共通 drawtext (外枠+シャドウ付き) ヘルパ
+  local shadow=":borderw=2:bordercolor=black@0.9:shadowcolor=black@0.95:shadowx=3:shadowy=3"
+  local shadow_thick=":borderw=3:bordercolor=black@0.9:shadowcolor=black@0.95:shadowx=4:shadowy=4"
+
+  # 店舗名 (大嵓埜)
+  vf+=",drawtext=fontfile='${FONT_MINCHO}':text='$(escape_drawtext "$STORE_NAME")'"
+  vf+=":fontsize=170:fontcolor=#${MAIN_COLOR}"
+  vf+=":x=(w-text_w)/2:y=h*0.12"
+  vf+="${shadow_thick}"
+
+  # エリア (横浜・大倉山)
+  vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='$(escape_drawtext "$STORE_AREA")'"
+  vf+=":fontsize=46:fontcolor=#${ACCENT_COLOR}"
+  vf+=":x=(w-text_w)/2:y=h*0.28"
+  vf+="${shadow}"
+
+  # 区切り線
+  vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='— — — — — — — — —'"
+  vf+=":fontsize=26:fontcolor=#${ACCENT_COLOR}"
+  vf+=":x=(w-text_w)/2:y=h*0.36"
+  vf+="${shadow}"
+
+  # 情報ブロック (各行を個別の drawtext で)
+  # ラベルと値を分けず、全角スペースで視認性を上げて 1行で描画
+  local info_font=32
+  local y_start=0.44
+  local y_step=0.055
+  local lines=(
+    "住所　　$STORE_ADDRESS"
+    "電話　　$STORE_TEL"
+    "アクセス　$STORE_ACCESS"
+    "営業　　$STORE_HOURS"
+    "定休日　$STORE_CLOSED"
+  )
+  local i=0
+  for line in "${lines[@]}"; do
+    local y_expr
+    y_expr=$(awk -v s="$y_start" -v st="$y_step" -v i="$i" 'BEGIN{printf "%.4f", s + st*i}')
+    vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='$(escape_drawtext "$line")'"
+    vf+=":fontsize=${info_font}:fontcolor=#${MAIN_COLOR}"
+    vf+=":x=(w-text_w)/2:y=h*${y_expr}"
+    vf+="${shadow}"
+    i=$((i+1))
+  done
+
+  # CTA (フッター)
+  vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='$(escape_drawtext "$STORE_CTA")'"
+  vf+=":fontsize=32:fontcolor=#${ACCENT_COLOR}"
+  vf+=":x=(w-text_w)/2:y=h*0.85"
+  vf+="${shadow}"
+
+  # フェードイン・アウト (少し長めに)
+  vf+=",fade=t=in:st=0:d=0.8,fade=t=out:st=${fade_out_start}:d=0.8"
 
   ffmpeg -y -hide_banner -loglevel error \
     "${input_args[@]}" \
@@ -216,9 +317,16 @@ total=${#SCENES[@]}
 idx=0
 for scene in "${SCENES[@]}"; do
   idx=$((idx + 1))
-  IFS='|' read -r dur main sub img main_fs <<< "$scene"
-  printf '[%d/%d] scene_%02d  %s\n' "$idx" "$total" "$idx" "$main"
-  build_scene "$(printf '%02d' "$idx")" "$dur" "$main" "$sub" "$img" "$main_fs"
+  IFS='|' read -r f1 f2 f3 f4 f5 <<< "$scene"
+  if [[ "$f1" == "INFO" ]]; then
+    # INFO|duration||image
+    printf '[%d/%d] scene_%02d  [INFO] %s\n' "$idx" "$total" "$idx" "$STORE_NAME"
+    build_info_scene "$(printf '%02d' "$idx")" "$f2" "$f4"
+  else
+    # duration|main|sub|image|main_fs
+    printf '[%d/%d] scene_%02d  %s\n' "$idx" "$total" "$idx" "$f2"
+    build_scene "$(printf '%02d' "$idx")" "$f1" "$f2" "$f3" "$f4" "$f5"
+  fi
   printf "file 'scene_%02d.mp4'\n" "$idx" >> "${TMP_DIR}/concat.txt"
 done
 

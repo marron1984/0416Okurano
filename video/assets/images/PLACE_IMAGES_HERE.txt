@@ -14,9 +14,11 @@ build_video.sh の SCENES から直接参照しています:
   Scene 1 (hook)       イメージ_お食事シーン0097.JPG
   Scene 2 (個室 寂)    寂-jaku-7C1A1614.JPG
   Scene 3 (個室 清)    清-sei-7C1A1622.JPG
-  Scene 4 (細部・器)   切子グラス0006.JPG
-  Scene 5 (席間・導線) イメージ_お食事シーン0052.JPG
-  Scene 6 (CTA)        イメージ_お食事シーン0046.JPG
+  Scene 4 (一献・器)   切子グラス0006.JPG
+  Scene 5 (静けさ)     イメージ_お食事シーン0099.JPG
+  Scene 6 (席間・導線) イメージ_お食事シーン0052.JPG
+  Scene 7 (締め)       イメージ_お食事シーン0046.JPG
+  Scene 8 (店舗情報)   寂-jaku-7C1A1614.JPG (blurred)
 
 別カットに差替えたい場合は build_video.sh の SCENES 配列を
 編集するか、このディレクトリに同名ファイルを置いてください。
