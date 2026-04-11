@@ -43,8 +43,10 @@ FPS=30
 
 # ==== カラー (料亭・高級和食を想起させる配色) ====
 BG_COLOR="0d0d10"          # 漆黒に近い
-MAIN_COLOR="f5f1e8"        # 温白（コピー本文）
-ACCENT_COLOR="c9a871"      # 金茶（サブコピー・強調）
+MAIN_COLOR="ffffff"        # 純白 (メインコピー。木目写真でも沈まないよう最大輝度)
+# 旧: ACCENT_COLOR="c9a871" (金茶) は木目写真で文字が沈むので、
+# 色相を木目から外した涼しめのクリームに変更。
+ACCENT_COLOR="f0eee5"      # 温白/クリーム (サブコピー・ラベル)
 
 # ==== パス ====
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -210,17 +212,17 @@ build_scene() {
 
   local vf="$base_filter"
 
-  # メインコピー (明朝 Light) ― 細い縁取りのみ、ドロップシャドウは入れない
+  # メインコピー (明朝 Light) ― 黒の縁取りで画像の上に浮かす
   vf+=",drawtext=fontfile='${FONT_MINCHO_LIGHT}':text='${main_esc}'"
   vf+=":fontsize=${main_fontsize}:fontcolor=#${MAIN_COLOR}"
   vf+=":x=(w-text_w)/2:y=h*0.76-(text_h/2)"
-  vf+=":borderw=2:bordercolor=black@0.6"
+  vf+=":borderw=3:bordercolor=black@0.95"
 
-  # サブコピー (ゴシック Light) ― 同じく縁取りのみ
+  # サブコピー (ゴシック Light) ― 小さい文字なので縁取りをさらに強め
   vf+=",drawtext=fontfile='${FONT_GOTHIC_LIGHT}':text='${sub_esc}'"
-  vf+=":fontsize=34:fontcolor=#${ACCENT_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.86"
-  vf+=":borderw=2:bordercolor=black@0.6"
+  vf+=":fontsize=36:fontcolor=#${ACCENT_COLOR}"
+  vf+=":x=(w-text_w)/2:y=h*0.865"
+  vf+=":borderw=4:bordercolor=black@0.95"
 
   # フェードイン・フェードアウト
   vf+=",fade=t=in:st=0:d=0.6,fade=t=out:st=${fade_out_start}:d=0.6"
