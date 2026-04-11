@@ -210,19 +210,17 @@ build_scene() {
 
   local vf="$base_filter"
 
-  # メインコピー (明朝 Light) ― 縁取りは最小限、影で立体感を出す
+  # メインコピー (明朝 Light) ― 細い縁取りのみ、ドロップシャドウは入れない
   vf+=",drawtext=fontfile='${FONT_MINCHO_LIGHT}':text='${main_esc}'"
   vf+=":fontsize=${main_fontsize}:fontcolor=#${MAIN_COLOR}"
   vf+=":x=(w-text_w)/2:y=h*0.76-(text_h/2)"
-  vf+=":borderw=1:bordercolor=black@0.7"
-  vf+=":shadowcolor=black@0.85:shadowx=3:shadowy=5"
+  vf+=":borderw=2:bordercolor=black@0.6"
 
-  # サブコピー (ゴシック Light)
+  # サブコピー (ゴシック Light) ― 同じく縁取りのみ
   vf+=",drawtext=fontfile='${FONT_GOTHIC_LIGHT}':text='${sub_esc}'"
   vf+=":fontsize=34:fontcolor=#${ACCENT_COLOR}"
   vf+=":x=(w-text_w)/2:y=h*0.86"
-  vf+=":borderw=1:bordercolor=black@0.7"
-  vf+=":shadowcolor=black@0.85:shadowx=2:shadowy=4"
+  vf+=":borderw=2:bordercolor=black@0.6"
 
   # フェードイン・フェードアウト
   vf+=",fade=t=in:st=0:d=0.6,fade=t=out:st=${fade_out_start}:d=0.6"
@@ -280,8 +278,8 @@ build_info_scene() {
   local vf="$base_filter"
 
   # 共通 drawtext 装飾 ―― 情報カードは背景を大きくぼかしているので
-  # 縁取りはごく薄く、シャドウだけで空気感を残す。
-  local shadow=":borderw=1:bordercolor=black@0.55:shadowcolor=black@0.85:shadowx=2:shadowy=3"
+  # 縁取りのみで足りる。ドロップシャドウは入れない。
+  local shadow=":borderw=1:bordercolor=black@0.4"
 
   # 行を 1 本追加するヘルパ ――  drawtext を vf に連結する
   # $1 = font $2 = text $3 = fontsize $4 = color $5 = y 比率
