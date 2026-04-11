@@ -392,9 +392,44 @@ done
 
 # ==== 連結 ====
 echo "連結中..."
+VIDEO_ONLY="${TMP_DIR}/video_only.mp4"
 ffmpeg -y -hide_banner -loglevel error \
   -f concat -safe 0 -i "${TMP_DIR}/concat.txt" \
-  -c copy "$OUT_FILE"
+  -c copy "$VIDEO_ONLY"
+
+# ==== BGM ミックス ====
+# BGM は下記の優先順で探索される (最初に見つかったものを採用):
+#   1) video/assets/bgm/ 配下の .mp3 / .m4a / .wav
+#   2) リポジトリ直下の .mp3 / .m4a / .wav
+# いずれも無ければ音声なしでそのままコピー。
+BGM_PATH=""
+BGM_DIR="${SCRIPT_DIR}/assets/bgm"
+for dir in "$BGM_DIR" "$REPO_ROOT"; do
+  [[ -d "$dir" ]] || continue
+  for f in "$dir"/*.mp3 "$dir"/*.m4a "$dir"/*.wav "$dir"/*.MP3 "$dir"/*.M4A "$dir"/*.WAV; do
+    if [[ -f "$f" ]]; then
+      BGM_PATH="$f"
+      break 2
+    fi
+  done
+done
+
+if [[ -n "$BGM_PATH" ]]; then
+  echo "BGM ミックス: $BGM_PATH"
+  VID_DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$VIDEO_ONLY")
+  FADE_OUT=$(awk -v d="$VID_DUR" 'BEGIN{printf "%.3f", d-1.8}')
+  # -shortest で動画尺に合わせてオーディオを自動切り詰め
+  # 音量は控えめ (0.75) にして映像の静けさを損なわない
+  ffmpeg -y -hide_banner -loglevel error \
+    -i "$VIDEO_ONLY" -i "$BGM_PATH" \
+    -filter_complex "[1:a]volume=0.75,afade=t=in:st=0:d=1.0,afade=t=out:st=${FADE_OUT}:d=1.8[a]" \
+    -map 0:v -map "[a]" \
+    -c:v copy -c:a aac -b:a 192k -ar 44100 -ac 2 \
+    -shortest "$OUT_FILE"
+else
+  echo "BGM 未設定 (${SCRIPT_DIR}/assets/bgm/ またはリポジトリ直下に mp3/m4a/wav を置くとミックスされます)"
+  cp "$VIDEO_ONLY" "$OUT_FILE"
+fi
 
 # 中間ファイル掃除
 rm -rf "$TMP_DIR"
