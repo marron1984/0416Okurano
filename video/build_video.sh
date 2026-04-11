@@ -72,18 +72,30 @@ find_font() {
 }
 
 FONT_MINCHO=$(find_font "明朝" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSerifJP-Regular.otf" \
   "/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf" \
   "/usr/share/fonts/truetype/fonts-japanese-mincho.ttf" \
   "/System/Library/Fonts/ヒラギノ明朝 ProN.ttc" \
   "/Library/Fonts/YuMincho.ttc" \
   "C:/Windows/Fonts/yumin.ttf")
 
+FONT_MINCHO_BOLD=$(find_font "明朝太字" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSerifJP-SemiBold.otf" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSerifJP-Regular.otf" \
+  "/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf")
+
 FONT_GOTHIC=$(find_font "ゴシック" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSansJP-Regular.otf" \
   "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf" \
   "/usr/share/fonts/truetype/fonts-japanese-gothic.ttf" \
   "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc" \
   "/Library/Fonts/YuGothic.ttc" \
   "C:/Windows/Fonts/YuGothR.ttc")
+
+FONT_GOTHIC_MEDIUM=$(find_font "ゴシック中太" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSansJP-Medium.otf" \
+  "${SCRIPT_DIR}/assets/fonts/NotoSansJP-Regular.otf" \
+  "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf")
 
 # ==== シーン台本 ====
 # フォーマット: duration(秒)|メインコピー|サブコピー|画像ファイル|main_fontsize
@@ -111,14 +123,17 @@ SCENES=(
   "3.0|献立は、静かに運ばれる。|—— 会話を遮らない、間合い|イメージ_お食事シーン0099.JPG|"
   "3.0|語らう人の、呼吸を遮らない。|—— ゆとりの席間、静かな導線|イメージ_お食事シーン0052.JPG|"
   "3.2|大切な夜に、ふさわしい一軒。|—— 失敗しない、接待・会食の支度|イメージ_お食事シーン0046.JPG|"
-  "INFO|5.0||寂-jaku-7C1A1614.JPG"
+  "INFO|7.0||寂-jaku-7C1A1614.JPG"
 )
 
 # ==== drawtext 用エスケープ ====
 escape_drawtext() {
-  # バックスラッシュ → コロン → カンマ → 単一引用符 の順で置換
+  # ffmpeg の filtergraph → drawtext の二重パース対策で、
+  # % は '\\%' の 2 バックスラッシュ付きで埋め込む必要がある。
+  # (filtergraph parser が \\ → \, さらに drawtext が \% → % と解釈)
   local s="$1"
-  s=${s//\\/\\\\}
+  s=${s//\\/\\\\}     # backslash 先に倍化
+  s=${s//%/\\\\%}     # % → \\%
   s=${s//:/\\:}
   s=${s//,/\\,}
   s=${s//\'/\\\'}
@@ -212,17 +227,23 @@ build_scene() {
 }
 
 # ==== 店舗情報シーン (最終ページ) ====
-# 大倉山の店舗情報を載せる専用レイアウト。
-# 住所・電話・営業時間等は「要入稿」として ○ 表記のプレースホルダ。
-# 実情報が確定したら下記の STORE_* を書き換えてください。
-STORE_NAME="大嵓埜"
-STORE_AREA="横浜・大倉山"
-STORE_ADDRESS="神奈川県横浜市港北区大倉山 ○-○-○"
-STORE_TEL="045-○○○-○○○○"
-STORE_ACCESS="東急東横線 大倉山駅 徒歩○分"
-STORE_HOURS="○○:○○ – ○○:○○ (L.O. ○○:○○)"
-STORE_CLOSED="○曜日"
-STORE_CTA="ご予約はお電話または公式サイトより"
+# 実店舗情報 (提供データより)
+STORE_NAME_LABEL="店名"
+STORE_NAME="北新地･懐石料理 大嵓埜"
+STORE_ADDR_LABEL="住所"
+STORE_ADDR_ZIP="〒530-0012"
+STORE_ADDR_LINE1="大阪府大阪市北区曽根崎新地1-3-23"
+STORE_ADDR_LINE2="北新地FOODEARビル3階"
+STORE_TEL_LABEL="電話番号"
+STORE_TEL="06-6341-3535"
+STORE_HOURS_LABEL="営業時間"
+STORE_HOURS_DAY="【昼の部】11時半〜平日14時・土曜15時"
+STORE_HOURS_NIGHT="【夜の部】17時半〜22時半"
+STORE_CLOSED_LABEL="定休日"
+STORE_CLOSED_LINE1="日曜・祝日"
+STORE_CLOSED_LINE2="※年末年始他、臨時休業有り"
+STORE_SERVICE_LABEL="サービス料"
+STORE_SERVICE="10%"
 
 build_info_scene() {
   local idx="$1" duration="$2" img_spec="$3"
@@ -238,8 +259,8 @@ build_info_scene() {
     input_args=(-loop 1 -t "$duration" -i "$img_path")
     # 画像を背景として残しつつ、強めのぼかし+減光で文字が主役になるよう調整
     base_filter="scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1"
-    base_filter+=",boxblur=22:1"
-    base_filter+=",eq=brightness=-0.28:saturation=0.55:contrast=1.02"
+    base_filter+=",boxblur=24:1"
+    base_filter+=",eq=brightness=-0.32:saturation=0.50:contrast=1.02"
     base_filter+=",format=yuv420p"
   else
     input_args=(-f lavfi -t "$duration" -i "color=c=#${BG_COLOR}:s=${WIDTH}x${HEIGHT}:r=${FPS}")
@@ -248,58 +269,86 @@ build_info_scene() {
 
   local vf="$base_filter"
 
-  # 共通 drawtext (外枠+シャドウ付き) ヘルパ
-  local shadow=":borderw=2:bordercolor=black@0.9:shadowcolor=black@0.95:shadowx=3:shadowy=3"
-  local shadow_thick=":borderw=3:bordercolor=black@0.9:shadowcolor=black@0.95:shadowx=4:shadowy=4"
+  # 共通 drawtext 装飾 (縁取り+シャドウ)
+  local shadow=":borderw=2:bordercolor=black@0.92:shadowcolor=black@0.95:shadowx=2:shadowy=2"
 
-  # 店舗名 (大嵓埜)
-  vf+=",drawtext=fontfile='${FONT_MINCHO}':text='$(escape_drawtext "$STORE_NAME")'"
-  vf+=":fontsize=170:fontcolor=#${MAIN_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.12"
-  vf+="${shadow_thick}"
-
-  # エリア (横浜・大倉山)
-  vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='$(escape_drawtext "$STORE_AREA")'"
-  vf+=":fontsize=46:fontcolor=#${ACCENT_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.28"
-  vf+="${shadow}"
-
-  # 区切り線
-  vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='— — — — — — — — —'"
-  vf+=":fontsize=26:fontcolor=#${ACCENT_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.36"
-  vf+="${shadow}"
-
-  # 情報ブロック (各行を個別の drawtext で)
-  # ラベルと値を分けず、全角スペースで視認性を上げて 1行で描画
-  local info_font=32
-  local y_start=0.44
-  local y_step=0.055
-  local lines=(
-    "住所　　$STORE_ADDRESS"
-    "電話　　$STORE_TEL"
-    "アクセス　$STORE_ACCESS"
-    "営業　　$STORE_HOURS"
-    "定休日　$STORE_CLOSED"
-  )
-  local i=0
-  for line in "${lines[@]}"; do
-    local y_expr
-    y_expr=$(awk -v s="$y_start" -v st="$y_step" -v i="$i" 'BEGIN{printf "%.4f", s + st*i}')
-    vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='$(escape_drawtext "$line")'"
-    vf+=":fontsize=${info_font}:fontcolor=#${MAIN_COLOR}"
-    vf+=":x=(w-text_w)/2:y=h*${y_expr}"
+  # 行を 1 本追加するヘルパ ――  drawtext を vf に連結する
+  # $1 = font $2 = text $3 = fontsize $4 = color $5 = y 比率
+  add_line() {
+    local font="$1" text="$2" size="$3" color="$4" yratio="$5"
+    vf+=",drawtext=fontfile='${font}':text='$(escape_drawtext "$text")'"
+    vf+=":fontsize=${size}:fontcolor=#${color}"
+    vf+=":x=(w-text_w)/2:y=h*${yratio}"
     vf+="${shadow}"
-    i=$((i+1))
-  done
+  }
 
-  # CTA (フッター)
-  vf+=",drawtext=fontfile='${FONT_GOTHIC}':text='$(escape_drawtext "$STORE_CTA")'"
-  vf+=":fontsize=32:fontcolor=#${ACCENT_COLOR}"
-  vf+=":x=(w-text_w)/2:y=h*0.85"
-  vf+="${shadow}"
+  # ---- レイアウト (1080x1920) ----
+  # ユーザー指定の体裁:
+  #   [ラベル]  ← 小 ゴシック 金
+  #   [値]      ← 大 明朝(店名のみ) / ゴシック(他)
+  #   [空白]
+  # これを 6 セクション縦積み。
 
-  # フェードイン・アウト (少し長めに)
+  # セクション Y 位置 (比率)。各ラベルの基準位置
+  local L1=0.08   # 店名
+  local L2=0.19   # 住所
+  local L3=0.36   # 電話番号
+  local L4=0.44   # 営業時間
+  local L5=0.58   # 定休日
+  local L6=0.71   # サービス料
+
+  # ラベルと値の相対オフセット
+  local DL=0.035  # ラベル→値 の縦オフセット
+
+  # ① 店名
+  add_line "$FONT_GOTHIC" "$STORE_NAME_LABEL" 28 "$ACCENT_COLOR" "$L1"
+  local l1_value
+  l1_value=$(awk -v l="$L1" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
+  add_line "$FONT_MINCHO_BOLD" "$STORE_NAME" 58 "$MAIN_COLOR" "$l1_value"
+
+  # ② 住所 (2行)
+  add_line "$FONT_GOTHIC" "$STORE_ADDR_LABEL" 28 "$ACCENT_COLOR" "$L2"
+  local l2_v1 l2_v2 l2_v3
+  l2_v1=$(awk -v l="$L2" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
+  l2_v2=$(awk -v l="$L2" -v d="$DL" 'BEGIN{printf "%.4f", l+d+0.035}')
+  l2_v3=$(awk -v l="$L2" -v d="$DL" 'BEGIN{printf "%.4f", l+d+0.070}')
+  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_ADDR_ZIP" 34 "$MAIN_COLOR" "$l2_v1"
+  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_ADDR_LINE1" 34 "$MAIN_COLOR" "$l2_v2"
+  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_ADDR_LINE2" 34 "$MAIN_COLOR" "$l2_v3"
+
+  # ③ 電話番号
+  add_line "$FONT_GOTHIC" "$STORE_TEL_LABEL" 28 "$ACCENT_COLOR" "$L3"
+  local l3_v
+  l3_v=$(awk -v l="$L3" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
+  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_TEL" 42 "$MAIN_COLOR" "$l3_v"
+
+  # ④ 営業時間 (2行)
+  add_line "$FONT_GOTHIC" "$STORE_HOURS_LABEL" 28 "$ACCENT_COLOR" "$L4"
+  local l4_v1 l4_v2
+  l4_v1=$(awk -v l="$L4" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
+  l4_v2=$(awk -v l="$L4" -v d="$DL" 'BEGIN{printf "%.4f", l+d+0.035}')
+  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_HOURS_DAY" 32 "$MAIN_COLOR" "$l4_v1"
+  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_HOURS_NIGHT" 32 "$MAIN_COLOR" "$l4_v2"
+
+  # ⑤ 定休日 (2行)
+  add_line "$FONT_GOTHIC" "$STORE_CLOSED_LABEL" 28 "$ACCENT_COLOR" "$L5"
+  local l5_v1 l5_v2
+  l5_v1=$(awk -v l="$L5" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
+  l5_v2=$(awk -v l="$L5" -v d="$DL" 'BEGIN{printf "%.4f", l+d+0.030}')
+  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_CLOSED_LINE1" 34 "$MAIN_COLOR" "$l5_v1"
+  add_line "$FONT_GOTHIC" "$STORE_CLOSED_LINE2" 26 "$ACCENT_COLOR" "$l5_v2"
+
+  # ⑥ サービス料
+  add_line "$FONT_GOTHIC" "$STORE_SERVICE_LABEL" 28 "$ACCENT_COLOR" "$L6"
+  local l6_v
+  l6_v=$(awk -v l="$L6" -v d="$DL" 'BEGIN{printf "%.4f", l+d}')
+  add_line "$FONT_GOTHIC_MEDIUM" "$STORE_SERVICE" 34 "$MAIN_COLOR" "$l6_v"
+
+  # 下部にブランドフット (区切り + 大嵓埜 ロゴ的な扱い)
+  add_line "$FONT_GOTHIC" "— — — — — — — — —" 22 "$ACCENT_COLOR" "0.84"
+  add_line "$FONT_MINCHO_BOLD" "大嵓埜" 68 "$MAIN_COLOR" "0.87"
+
+  # フェードイン・アウト
   vf+=",fade=t=in:st=0:d=0.8,fade=t=out:st=${fade_out_start}:d=0.8"
 
   ffmpeg -y -hide_banner -loglevel error \
