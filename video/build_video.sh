@@ -128,13 +128,13 @@ FONT_GOTHIC_MEDIUM=$(find_font "ゴシック中太" \
 #   ターゲット : 30〜50代経営者の接待、40代以上の会食
 #   最重要価値 : 失敗しない安心感
 SCENES=(
-  "3.0|その一席が、関係を決める。|—— 接待・会食・顔合わせ|イメージ_お食事シーン0097.JPG|"
-  "3.0|粛然たる、二〜四名の間。|—— 寂 jaku ／ 煉瓦色の壁に、ゆるやかな時|寂-jaku-7C1A1614.JPG|"
-  "3.0|美意識で、賓客をもてなす。|—— 清 sei ／ 金泥のやまと絵と雪結晶の床|清-sei-7C1A1622.JPG|"
-  "3.0|一献の支度にも、品格を。|—— 選び抜いた、酒と器と|切子グラス0006.JPG|"
-  "3.0|献立は、静かに運ばれる。|—— 会話を遮らない、間合い|イメージ_お食事シーン0099.JPG|"
-  "3.0|語らう人の、呼吸を遮らない。|—— ゆとりの席間、静かな導線|イメージ_お食事シーン0052.JPG|"
-  "3.2|大切な夜に、ふさわしい一軒。|—— 失敗しない、接待・会食の支度|イメージ_お食事シーン0046.JPG|"
+  "3.0|その一席が、関係を決める|—— 接待・会食・顔合わせ|イメージ_お食事シーン0097.JPG|"
+  "3.0|粛然たる、二〜四名の間|—— 寂 jaku ／ 煉瓦色の壁に、ゆるやかな時|寂-jaku-7C1A1614.JPG|"
+  "3.0|美意識で、賓客をもてなす|—— 清 sei ／ 金泥のやまと絵と雪結晶の床|清-sei-7C1A1622.JPG|"
+  "3.0|一献の支度にも、品格を|—— 選び抜いた、酒と器と|切子グラス0006.JPG|"
+  "3.0|献立は、静かに運ばれる|—— 会話を遮らない、間合い|イメージ_お食事シーン0099.JPG|"
+  "3.0|語らう人の、呼吸を遮らない|—— ゆとりの席間、静かな導線|イメージ_お食事シーン0052.JPG|"
+  "3.2|大切な夜に、ふさわしい一軒|—— 失敗しない、接待・会食の支度|イメージ_お食事シーン0046.JPG|"
   "INFO|7.0||寂-jaku-7C1A1614.JPG"
 )
 
@@ -186,7 +186,7 @@ build_scene() {
   local idx="$1" duration="$2" main="$3" sub="$4" img_spec="$5" main_fs="${6:-}"
   local out="${TMP_DIR}/scene_${idx}.mp4"
 
-  local main_fontsize="${main_fs:-76}"
+  local main_fontsize="${main_fs:-72}"
 
   local main_esc sub_esc
   main_esc=$(escape_drawtext "$main")
@@ -239,9 +239,9 @@ build_scene() {
 # ==== 店舗情報シーン (最終ページ) ====
 # 実店舗情報 (提供データより)
 STORE_NAME_LABEL="店名"
-STORE_NAME="北新地･懐石料理 大嵓埜"
+STORE_NAME="北新地 大嵓埜"
 STORE_ADDR_LABEL="住所"
-STORE_ADDR_ZIP="〒530-0012"
+STORE_ADDR_ZIP="〒530-0002"
 STORE_ADDR_LINE1="大阪府大阪市北区曽根崎新地1-3-23"
 STORE_ADDR_LINE2="北新地FOODEARビル3階"
 STORE_TEL_LABEL="電話番号"
@@ -417,12 +417,15 @@ done
 if [[ -n "$BGM_PATH" ]]; then
   echo "BGM ミックス: $BGM_PATH"
   VID_DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$VIDEO_ONLY")
-  FADE_OUT=$(awk -v d="$VID_DUR" 'BEGIN{printf "%.3f", d-1.8}')
-  # -shortest で動画尺に合わせてオーディオを自動切り詰め
-  # 音量は控えめ (0.75) にして映像の静けさを損なわない
+  FADE_OUT=$(awk -v d="$VID_DUR" 'BEGIN{printf "%.3f", d-2.4}')
+  # 大手企業重役クラスの接待利用イメージに合わせて、
+  # ・テンポを 0.85 倍に減速      (落ち着き)
+  # ・高域を 5kHz でカット        (柔らかく)
+  # ・音量を 0.45 まで下げる      (控えめに敷く)
+  # ・フェードイン 1.5s / フェードアウト 2.4s
   ffmpeg -y -hide_banner -loglevel error \
     -i "$VIDEO_ONLY" -i "$BGM_PATH" \
-    -filter_complex "[1:a]volume=0.75,afade=t=in:st=0:d=1.0,afade=t=out:st=${FADE_OUT}:d=1.8[a]" \
+    -filter_complex "[1:a]atempo=0.85,lowpass=f=5000,volume=0.45,afade=t=in:st=0:d=1.5,afade=t=out:st=${FADE_OUT}:d=2.4[a]" \
     -map 0:v -map "[a]" \
     -c:v copy -c:a aac -b:a 192k -ar 44100 -ac 2 \
     -shortest "$OUT_FILE"
