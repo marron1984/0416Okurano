@@ -418,14 +418,10 @@ if [[ -n "$BGM_PATH" ]]; then
   echo "BGM ミックス: $BGM_PATH"
   VID_DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$VIDEO_ONLY")
   FADE_OUT=$(awk -v d="$VID_DUR" 'BEGIN{printf "%.3f", d-2.4}')
-  # 大手企業重役クラスの接待利用イメージに合わせて、
-  # ・テンポを 0.85 倍に減速      (落ち着き)
-  # ・高域を 5kHz でカット        (柔らかく)
-  # ・音量を 0.45 まで下げる      (控えめに敷く)
-  # ・フェードイン 1.5s / フェードアウト 2.4s
+  # BGM をそのまま使用。音量とフェードのみ調整。
   ffmpeg -y -hide_banner -loglevel error \
     -i "$VIDEO_ONLY" -i "$BGM_PATH" \
-    -filter_complex "[1:a]atempo=0.85,lowpass=f=5000,volume=0.45,afade=t=in:st=0:d=1.5,afade=t=out:st=${FADE_OUT}:d=2.4[a]" \
+    -filter_complex "[1:a]volume=0.55,afade=t=in:st=0:d=1.5,afade=t=out:st=${FADE_OUT}:d=2.4[a]" \
     -map 0:v -map "[a]" \
     -c:v copy -c:a aac -b:a 192k -ar 44100 -ac 2 \
     -shortest "$OUT_FILE"
